@@ -1,4 +1,4 @@
-// server.js — Render-ready consent-first IP demo
+// server.js — Render-ready button-only consent IP demo
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -20,43 +20,32 @@ if (!fs.existsSync(LOGFILE)) {
 
 // Helper: normalize and extract real client IP
 function getClientIp(req) {
-  // X-Forwarded-For may contain multiple IPs, first is the original client
   const xff = req.headers['x-forwarded-for'] || req.headers['X-Forwarded-For'];
   if (xff && typeof xff === 'string') {
     const first = xff.split(',').map(s => s.trim()).find(Boolean);
     if (first) return first.replace(/^::ffff:/, '');
   }
-
-  // fallback to Express IP
   if (req.ip) return req.ip.replace(/^::ffff:/, '');
-
-  // fallback to socket remote address
   if (req.socket && req.socket.remoteAddress) return req.socket.remoteAddress.replace(/^::ffff:/, '');
-
   return '';
 }
 
+// GET / — homepage with button-only consent form
 app.get('/', (req, res) => {
   res.send(`
-    <h1>Classroom Demo — Consent Required</h1>
-    <p>This page will only log your request info <strong>if you check the consent box and submit</strong>.</p>
+    <h1>Hypixel Stats — Consent Required</h1>
+    <p><strong>Important:</strong> By pressing the button below, you agree to have your request information (IP, User-Agent, Accept headers, timestamp) logged for educational purposes only. Your information will not be logged unless you press this button.</p>
     <form method="POST" action="/consent">
-      <label>
-        <input type="checkbox" name="consent" value="yes" required>
-        I consent to having my request info logged for this educational demonstration.
-      </label>
-      <br><br>
-      <button type="submit">Give consent and continue</button>
+      <button type="submit">Proceed — Log my info</button>
     </form>
   `);
 });
 
+// POST /consent — log info after button press
 app.post('/consent', (req, res) => {
-  const consent = req.body.consent === 'yes' ? 'yes' : 'no';
-  if (consent !== 'yes') {
-    return res.send('<p>Consent was not given — nothing was logged. Close this window.</p>');
-  }
-
+  // Button press is explicit consent
+  const consent = 'yes';
+  
   const ip = getClientIp(req);
   const ua = (req.get('User-Agent') || '').replace(/,/g, '');
   const accept = (req.get('Accept') || '').replace(/,/g, '');
@@ -68,12 +57,12 @@ app.post('/consent', (req, res) => {
     if (err) console.error('Failed to write log:', err);
   });
 
-  // Console log for instructor
+  // Console log for instructor visibility
   console.log(`[DEMO LOG] ${time} ip=${ip} ua="${ua}"`);
 
-  // Show info to consenting visitor
+  // Show info to visitor
   res.send(`
-    <h2>Thanks — your info was logged (consent received)</h2>
+    <h2>Thanks — your info was logged</h2>
     <pre>
 Time: ${time}
 IP: ${ip}
@@ -84,6 +73,7 @@ Accept: ${accept}
   `);
 });
 
+// Start server
 app.listen(PORT, () => {
   console.log(`Consent demo running at http://localhost:${PORT} (or Render port)`);
 });
